@@ -8,13 +8,13 @@ const jwt = require("jsonwebtoken");
 
 dotenv.config();
 
-//enpoint to make a blog post
+//enpoint to make a task
 router.post('/post', async (req, res) => {
     //geting the parameter from request body
-  const { token, title, user_id, tasks, description} = req.body;
+  const { token, title, user_id, task, description} = req.body;
 
   //checks
-  if (!token || !tasks ) {
+  if (!token || !task || !user_id ) {
     return res.status(400).send({ status: "error", msg: "All fields must be filled" });
   }
 
@@ -30,8 +30,9 @@ router.post('/post', async (req, res) => {
     let post = new Post();
     post.title = title;
     post.description = description;
-    post.tasks = tasks;
+    post.task = task;
     post.timestamp = timestamp;
+    post.user_id = user_id;
 
     //save to database
     post = await post.save();
@@ -60,10 +61,10 @@ router.post('/post', async (req, res) => {
 
   // endpoint to edit a todolist post
 router.post("/edit_post", async (req, res) => {
-  const { post_id, token, title, tasks, description } = req.body;
+  const { post_id, token, title, task, description, user_id } = req.body;
 
   // check for required fields
-  if (!post_id || !token) {
+  if (!post_id || !token || !user_id) {
     return res.status(400).send({ status: "error", msg: "All fields must be filled" });
   }
 
@@ -79,12 +80,12 @@ router.post("/edit_post", async (req, res) => {
       return res.status(400).send({ status: "error", msg: "post not found" });
     }
 
-    // update post document
+    // update post task
     post = await Post.findOneAndUpdate(
       { _id: post_id },
       {
         title: title || post.title,
-        tasks: tasks || post.tasks,
+        tasks: task || post.task,
         edited_at: timestamp,
         edited: true,
         description: description || post.description
@@ -99,8 +100,8 @@ router.post("/edit_post", async (req, res) => {
   }
 });
 
-// endpoint to fetch all posts for a specific user
-router.post("/all_specific_userpost", async (req, res) => {
+// endpoint to fetch all tasks for a specific user
+router.post("/all_specific_usertask", async (req, res) => {
   const { token, user_id } = req.body;
   
   //checks
@@ -112,7 +113,7 @@ router.post("/all_specific_userpost", async (req, res) => {
     const user = jwt.verify(token, process.env.JWT_SECRET);
 
     const post = await Post.find({ user_id: user_id })
-      .select([ "title","tasks", "description" ])
+      .select([ "title","task", "description","post_id" ])
       .lean();
     // console.log(post);
 
@@ -148,4 +149,64 @@ router.post('/delete', async (req, res) => {
 
 
 }) 
+
+//endpoint to indicate done task
+router.post('/done', async (req, res) => {
+  const {token, post_id, user_id} = req.body;
+
+  if(!token || !post_id || !user_id)
+  return res.status(400).send({status: 'error', msg: 'All field must be filled'}) 
+     
+  try{
+    //token verification
+    let user = jwt.verify(token, process.env.JWT_SECRET);
+    
+    const timestamp = new Date();
+  
+    //const task = await Post.findOneAndDelete({post_id});
+
+    
+  // if(!task)
+  // return res.status(400).send({status: 'error', msg: 'Task not found'});
+
+  const post = await Post.findOneAndUpdate(
+    { _id: post_id },
+    {
+      
+      completed_at: timestamp,
+      completed: true,  
+    },
+    { new: true }
+  ).lean();
+  
+  return res.status(200).send({status: 'ok', msg: 'task  is done', post});
+}catch(e){
+    console.log(e);
+    return res.status(400).send({status: 'error', msg: 'Some error occurred'});
+}
+});
+
+// endpoint to fetch all  completed tasks  for a specific user
+router.post("/all_completed_tasks", async (req, res) => {
+  const { token, user_id } = req.body;
+  
+  //checks
+  if (!token || !user_id )
+    return res.status(400).send({ status: "error", msg: "All fields must be filled" });
+
+  try {
+    // token verification
+    const user = jwt.verify(token, process.env.JWT_SECRET);
+
+    const post = await Post.find( {completed: true})
+      .select([ "title","task", "description","post_id" ,"user_id","completed", "completed_at"])
+      .lean();
+    // console.log(post);
+
+    return res.status(200).send({ status: "ok", msg: "completed tasks gotten successfully", post });
+  } catch (e) {
+    console.log(e);
+    return res.status(400).send({ status: "error", msg: "Some error occurred" });
+  }
+});
   module.exports = router;

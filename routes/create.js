@@ -3,6 +3,7 @@ const User =  require('../models/user');
 const router = express.Router();
 const jwt =  require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { route } = require('./post');
 
 
 //signup endpoint
@@ -89,14 +90,53 @@ router.post('/login', async (req, res) => {
     
 });
 
+//logout endpoint
+router.post('/log-out', async (req, res)=> {
+    const {token, user_id} = req.body;
+
+    if(!token || !user_id) 
+        return res.status(400).send({status: 'error', msg: 'All field must be  filled'});
+
+    
+  try {
+    // token verification
+    jwt.verify(token, process.env.JWT_SECRET);
+
+    const timestamp = new Date();
+    
+    // check if user exists
+    let user = await User.findOne({ _id: user_id });
+    if (!user) {
+      return res.status(400).send({ status: "error", msg: "user not found" });
+    }
+
+    // update post document
+    user = await User.findOneAndUpdate(
+      { _id: user_id },
+      {
+        
+        offline_at: timestamp,
+        online: false,  
+      },
+      { new: true }
+    ).lean();
+
+    return res.status(200).send({ status: "ok", msg: "logged out successfully", user });
+  } catch (e) {
+    console.log(e);
+    return res.status(400).send({ status: "error", msg: "Some error occurred" });
+  }
+
+})
+
 //endpoint to delete a user
 router.post('/deleteuser', async (req, res) => {
     
     //getting the User_id from the request body
-    const {user_id} = req.body;
+    const {user_id, token} = req.body;
 
     //checks 
-    if(!user_id) {
+    if(!user_id || !token) {
         return res.status(400).send({ status: 'error', msg: 'All field must be filled'})
     }
 

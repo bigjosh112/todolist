@@ -6,6 +6,8 @@ const userSchema = mongoose.Schema(
         email:{type: String, unique: true, require: true},
         password:{type: String, unique: true, require: true},
         username:{type: String, unique: true},
+        online: {default: false},
+        offline_at: Date,
     
          stats: {
             post_count: { type: Number, default: 0 }
